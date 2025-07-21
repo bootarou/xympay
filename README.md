@@ -1,6 +1,6 @@
 # XYMPay - Symbol Payment System
 
-![XYMPay Logo](https://via.placeholder.com/150x75/0066cc/ffffff?text=XYMPay)
+![XYMPay Logo](https://raw.githubusercontent.com/bootarou/xympay/refs/heads/main/public/image/logo.png)
 
 XYMPay is a payment system built on the Symbol blockchain, providing e-commerce product sales and payment functionality.
 
