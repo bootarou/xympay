@@ -1,0 +1,19 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景 -->
+  <rect width="32" height="32" rx="6" fill="#2E7D32"/>
+  
+  <!-- ウォレットの本体 -->
+  <rect x="6" y="10" width="20" height="14" rx="2" fill="white"/>
+  
+  <!-- ウォレットの折り目 -->
+  <line x1="6" y1="16" x2="26" y2="16" stroke="#2E7D32" stroke-width="1"/>
+  
+  <!-- コインスロット -->
+  <circle cx="22" cy="13" r="1.5" fill="#2E7D32"/>
+  
+  <!-- カスタムマーク（星） -->
+  <polygon points="16,5 17.5,8.5 21,8.5 18.5,11 19.5,14.5 16,12.5 12.5,14.5 13.5,11 11,8.5 14.5,8.5" fill="#FFD700"/>
+  
+  <!-- "My" テキスト表現 -->
+  <text x="16" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="white">MY</text>
+</svg>
