@@ -24,6 +24,8 @@ export default function AccountingSettings() {
   const { data: session, status } = useSession();
   const { settings, loading, error, createSettings, updateSettings, deleteSettings, exportData } = useAccountingSettings();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingSettingId, setEditingSettingId] = useState<string | null>(null);
   const [showExportForm, setShowExportForm] = useState(false);
   const [showSyncHistory, setShowSyncHistory] = useState(false);
   const [syncHistories, setSyncHistories] = useState<SyncHistory[]>([]);
@@ -60,22 +62,74 @@ export default function AccountingSettings() {
         minAmount: formData.minAmount ? parseFloat(formData.minAmount) : null
       });
       setShowCreateForm(false);
-      setFormData({
-        provider: '',
-        isEnabled: true,
-        autoSync: false,
-        syncFrequency: 'daily',
-        defaultTaxRate: 10.00,
-        defaultAccountCode: '4110',
-        exchangeRateSource: 'api',
-        minAmount: '',
-        excludeStatuses: []
-      });
+      resetForm();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'エラーが発生しました');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleEditSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSettingId) return;
+    
+    setActionLoading(true);
+    
+    try {
+      await updateSettings(editingSettingId, {
+        ...formData,
+        minAmount: formData.minAmount ? parseFloat(formData.minAmount) : null
+      });
+      setShowEditForm(false);
+      setEditingSettingId(null);
+      resetForm();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'エラーが発生しました');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStartEdit = (setting: { 
+    id: string; 
+    provider: string; 
+    isEnabled: boolean; 
+    autoSync: boolean; 
+    syncFrequency: string; 
+    defaultTaxRate: number; 
+    defaultAccountCode: string; 
+    exchangeRateSource: string; 
+    minAmount?: number | null; 
+    excludeStatuses?: string[] 
+  }) => {
+    setFormData({
+      provider: setting.provider,
+      isEnabled: setting.isEnabled,
+      autoSync: setting.autoSync,
+      syncFrequency: setting.syncFrequency,
+      defaultTaxRate: setting.defaultTaxRate,
+      defaultAccountCode: setting.defaultAccountCode,
+      exchangeRateSource: setting.exchangeRateSource,
+      minAmount: setting.minAmount ? setting.minAmount.toString() : '',
+      excludeStatuses: setting.excludeStatuses || []
+    });
+    setEditingSettingId(setting.id);
+    setShowEditForm(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      provider: '',
+      isEnabled: true,
+      autoSync: false,
+      syncFrequency: 'daily',
+      defaultTaxRate: 10.00,
+      defaultAccountCode: '4110',
+      exchangeRateSource: 'api',
+      minAmount: '',
+      excludeStatuses: []
+    });
   };
 
   const handleToggleEnabled = async (id: string, currentValue: boolean) => {
@@ -120,6 +174,23 @@ export default function AccountingSettings() {
   const handleOAuthConnect = async (provider: string) => {
     try {
       if (provider === 'freee') {
+        // freee設定の確認
+        const response = await fetch('/api/user/freee-settings');
+        
+        if (response.status === 401) {
+          alert('認証が必要です。ログインしてください。');
+          return;
+        }
+        
+        const settings = await response.json();
+        
+        if (!settings.freeeClientId || !settings.freeeClientSecret || !settings.freeeRedirectUri) {
+          if (confirm('freee連携設定が未完了です。設定ページに移動しますか？')) {
+            window.location.href = '/settings/freee';
+          }
+          return;
+        }
+        
         window.location.href = '/accounting/freee-oauth';
       } else {
         alert('このプロバイダーのOAuth認証はまだ実装されていません');
@@ -330,6 +401,15 @@ export default function AccountingSettings() {
                         </button>
                       )}
                       
+                      {/* 編集ボタン */}
+                      <button
+                        onClick={() => handleStartEdit(setting)}
+                        disabled={actionLoading}
+                        className="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full hover:bg-gray-200 disabled:opacity-50"
+                      >
+                        編集
+                      </button>
+                      
                       {/* 手動同期ボタン */}
                       <button
                         onClick={() => handleManualSync(setting.id)}
@@ -416,6 +496,30 @@ export default function AccountingSettings() {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700">最小金額（XYM）</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={formData.minAmount}
+                  onChange={(e) => setFormData({...formData, minAmount: e.target.value})}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="最小金額を指定（空白の場合は制限なし）"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">為替レートソース</label>
+                <select
+                  value={formData.exchangeRateSource}
+                  onChange={(e) => setFormData({...formData, exchangeRateSource: e.target.value})}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  <option value="api">API自動取得</option>
+                  <option value="manual">手動設定</option>
+                </select>
+              </div>
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -446,7 +550,10 @@ export default function AccountingSettings() {
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowCreateForm(false)}
+                  onClick={() => {
+                    setShowCreateForm(false)
+                    resetForm()
+                  }}
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   キャンセル
@@ -457,6 +564,143 @@ export default function AccountingSettings() {
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {actionLoading ? '作成中...' : '作成'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 設定編集フォーム */}
+      {showEditForm && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">会計設定を編集</h3>
+            
+            <form onSubmit={handleEditSettings} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">プロバイダー</label>
+                <select
+                  value={formData.provider}
+                  onChange={(e) => setFormData({...formData, provider: e.target.value})}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  disabled={true} // プロバイダーは編集時に変更不可
+                >
+                  <option value="">選択してください</option>
+                  {ACCOUNTING_PROVIDERS.map(provider => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">プロバイダーは編集できません</p>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.isEnabled}
+                  onChange={(e) => setFormData({...formData, isEnabled: e.target.checked})}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                />
+                <label className="ml-2 block text-sm text-gray-900">この設定を有効にする</label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">税率 (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.defaultTaxRate}
+                  onChange={(e) => setFormData({...formData, defaultTaxRate: parseFloat(e.target.value)})}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">勘定科目</label>
+                <select
+                  value={formData.defaultAccountCode}
+                  onChange={(e) => setFormData({...formData, defaultAccountCode: e.target.value})}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  {ACCOUNT_CODES.map(account => (
+                    <option key={account.code} value={account.code}>
+                      {account.code} - {account.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">最小金額（XYM）</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={formData.minAmount}
+                  onChange={(e) => setFormData({...formData, minAmount: e.target.value})}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="最小金額を指定（空白の場合は制限なし）"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">為替レートソース</label>
+                <select
+                  value={formData.exchangeRateSource}
+                  onChange={(e) => setFormData({...formData, exchangeRateSource: e.target.value})}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  <option value="api">API自動取得</option>
+                  <option value="manual">手動設定</option>
+                </select>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.autoSync}
+                  onChange={(e) => setFormData({...formData, autoSync: e.target.checked})}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                />
+                <label className="ml-2 block text-sm text-gray-900">自動同期を有効にする</label>
+              </div>
+
+              {formData.autoSync && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">同期頻度</label>
+                  <select
+                    value={formData.syncFrequency}
+                    onChange={(e) => setFormData({...formData, syncFrequency: e.target.value})}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  >
+                    {SYNC_FREQUENCIES.map(freq => (
+                      <option key={freq.id} value={freq.id}>
+                        {freq.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditForm(false)
+                    setEditingSettingId(null)
+                    resetForm()
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {actionLoading ? '更新中...' : '更新'}
                 </button>
               </div>
             </form>

@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useRef } from "react"
+import Image from "next/image"
 import { Layout } from "../../components"
 import { useTranslation } from "../../lib/i18n"
 
@@ -50,9 +51,11 @@ const ImageGallery = ({ images, productName }: { images: ProductImage[], product
 
   if (images.length === 1) {
     return (
-      <img
+      <Image
         src={images[0].url}
         alt={productName}
+        width={400}
+        height={192}
         className="w-full h-48 object-cover"
       />
     )
@@ -60,9 +63,11 @@ const ImageGallery = ({ images, productName }: { images: ProductImage[], product
 
   return (
     <div className="relative">
-      <img
+      <Image
         src={images[currentImageIndex].url}
         alt={`${productName} - ${currentImageIndex + 1}`}
+        width={400}
+        height={192}
         className="w-full h-48 object-cover"
       />
       
@@ -119,9 +124,11 @@ const ImageGallery = ({ images, productName }: { images: ProductImage[], product
                 index === currentImageIndex ? 'border-white shadow-lg' : 'border-white/60'
               }`}
             >
-              <img
+              <Image
                 src={image.url}
                 alt={`${productName} thumbnail ${index + 1}`}
+                width={64}
+                height={64}
                 className="w-full h-full object-cover"
               />
             </button>
@@ -138,7 +145,7 @@ const ImageGallery = ({ images, productName }: { images: ProductImage[], product
 }
 
 export default function ProductList() {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
   const { t } = useTranslation()
   const [isMounted, setIsMounted] = useState(false)
@@ -147,7 +154,40 @@ export default function ProductList() {
   const [error, setError] = useState("")
   const [processingProductId, setProcessingProductId] = useState<string | null>(null)
   const [shareMenuOpen, setShareMenuOpen] = useState<string | null>(null)
+  const [showImages, setShowImages] = useState(true)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const shareMenuRef = useRef<HTMLDivElement>(null)
+
+  // 画像表示設定とビューモードをlocalStorageから読み込み・保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedShowImages = localStorage.getItem('products-show-images')
+      if (savedShowImages !== null) {
+        setShowImages(JSON.parse(savedShowImages))
+      }
+      
+      const savedViewMode = localStorage.getItem('products-view-mode')
+      if (savedViewMode === 'list' || savedViewMode === 'grid') {
+        setViewMode(savedViewMode)
+      }
+    }
+  }, [])
+
+  const toggleImageDisplay = () => {
+    const newShowImages = !showImages
+    setShowImages(newShowImages)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('products-show-images', JSON.stringify(newShowImages))
+    }
+  }
+
+  const toggleViewMode = () => {
+    const newViewMode = viewMode === 'grid' ? 'list' : 'grid'
+    setViewMode(newViewMode)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('products-view-mode', newViewMode)
+    }
+  }
   // 決済ページを開く機能
   const handleOpenPayment = async (product: Product) => {
     try {
@@ -295,7 +335,7 @@ export default function ProductList() {
       } else {
         setError("商品の取得に失敗しました")
       }
-    } catch (error) {
+    } catch {
       setError("商品の取得中にエラーが発生しました")
     } finally {
       setIsLoading(false)
@@ -330,12 +370,66 @@ export default function ProductList() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 space-y-4 sm:space-y-0">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t("products.list.title")}</h1>
-            <a
-              href="/products/register"              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md text-sm font-medium text-center"
-            >
-              {t("products.addProduct")}
-          </a>
-        </div>
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+              {/* ビューモード切り替えボタン */}
+              <button
+                onClick={toggleViewMode}
+                className={`w-full sm:w-auto px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center ${
+                  viewMode === 'grid' 
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                }`}
+              >
+                {viewMode === 'grid' ? (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    </svg>
+                    リスト表示
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    ギャラリー表示
+                  </>
+                )}
+              </button>
+              
+              {/* 画像表示切り替えボタン */}
+              <button
+                onClick={toggleImageDisplay}
+                className={`w-full sm:w-auto px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center ${
+                  showImages 
+                    ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                }`}
+              >
+                {showImages ? (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L8.464 8.464m1.414 1.414L7.05 7.05m2.828 2.828l4.243 4.243m0 0L12.707 12.707M14.12 14.12l2.829 2.829" />
+                    </svg>
+                    画像を非表示
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    画像を表示
+                  </>
+                )}
+              </button>
+              <a
+                href="/products/register"
+                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md text-sm font-medium text-center"
+              >
+                {t("products.addProduct")}
+              </a>
+            </div>
+          </div>
 
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
@@ -354,15 +448,209 @@ export default function ProductList() {
               {t("products.addProduct")}
             </a>
           </div>        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            {products.map((product) => (
-              <div key={product.id} className="bg-white shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow">
-                {/* 商品画像ギャラリー */}
-                <ImageGallery images={product.images} productName={product.name} />
+          <div className={`${
+            viewMode === 'grid'
+              ? `grid gap-4 sm:gap-6 ${
+                  showImages 
+                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+                    : 'grid-cols-1 sm:grid-cols-2'
+                }`
+              : 'space-y-0'
+          }`}>
+            {/* リスト表示時のテーブルヘッダー */}
+            {viewMode === 'list' && (
+              <div className="bg-white shadow-sm rounded-lg mb-4 overflow-hidden">
+                <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 grid grid-cols-9 gap-2 text-xs font-medium text-gray-700">
+                  <div>登録日</div>
+                  <div className="col-span-2">商品名</div>
+                  <div>在庫数</div>
+                  <div>価格</div>
+                  <div>販売開始日</div>
+                  <div>販売終了日</div>
+                  <div>編集</div>
+                  <div>共有・決済</div>
+                </div>
+              </div>
+            )}
 
-                <div className="p-4 sm:p-6">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
-                    <div className="space-y-2 text-xs sm:text-sm text-gray-600">
+            {viewMode === 'list' ? (
+              // リスト表示（テーブル形式）
+              <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+                {products.map((product, index) => (
+                  <div key={product.id} className={`px-4 py-3 grid grid-cols-9 gap-2 items-center text-sm border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                    index === products.length - 1 ? 'border-b-0' : ''
+                  }`}>
+                    {/* 登録日 */}
+                    <div className="text-xs text-gray-600">
+                      {formatDate(product.createdAt)}
+                    </div>
+
+                    {/* 商品名 */}
+                    <div className="col-span-2">
+                      <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                      {product.description && (
+                        <div className="text-xs text-gray-500 truncate mt-1">{product.description}</div>
+                      )}
+                    </div>
+
+                    {/* 在庫数 */}
+                    <div className="text-center">
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        product.stock > 0 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {product.stock}
+                      </span>
+                    </div>
+
+                    {/* 価格 */}
+                    <div className="font-medium text-gray-900">
+                      {formatPrice(product.price)} XYM
+                    </div>
+
+                    {/* 販売開始日 */}
+                    <div className="text-xs text-gray-600">
+                      {product.saleStartDate ? formatDate(product.saleStartDate) : '-'}
+                    </div>
+
+                    {/* 販売終了日 */}
+                    <div className="text-xs text-gray-600">
+                      {product.saleEndDate ? formatDate(product.saleEndDate) : '-'}
+                    </div>
+
+                    {/* 編集ボタン */}
+                    <div>
+                      <a
+                        href={`/products/${product.id}/edit`}
+                        className="inline-flex items-center px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded transition-colors"
+                      >
+                        編集
+                      </a>
+                    </div>
+
+                    {/* 共有・決済ボタン */}
+                    <div className="flex space-x-1">
+                      {/* 共有ボタン */}
+                      <div className="relative" ref={shareMenuOpen === product.id ? shareMenuRef : null}>
+                        <button 
+                          onClick={() => handleShareToggle(product.id)}
+                          className="inline-flex items-center px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                        >
+                          共有
+                        </button>
+
+                        {/* 共有ドロップダウンメニュー（上方向に表示） */}
+                        {shareMenuOpen === product.id && (
+                          <div className="absolute bottom-full mb-1 left-0 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                            <div className="py-1">
+                              {/* URLコピー */}
+                              <button
+                                onClick={() => handleCopyUrl(product)}
+                                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center"
+                              >
+                                <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                URLコピー
+                              </button>
+
+                              <div className="border-t border-gray-100"></div>
+
+                              {/* Twitter */}
+                              <button
+                                onClick={() => handleSnsShare('twitter', product)}
+                                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center"
+                              >
+                                <svg className="w-3 h-3 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                                </svg>
+                                Twitter
+                              </button>
+
+                              {/* Facebook */}
+                              <button
+                                onClick={() => handleSnsShare('facebook', product)}
+                                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center"
+                              >
+                                <svg className="w-3 h-3 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                </svg>
+                                Facebook
+                              </button>
+
+                              {/* LINE */}
+                              <button
+                                onClick={() => handleSnsShare('line', product)}
+                                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
+                              >
+                                LINE
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 決済ボタン */}
+                      <button 
+                        onClick={() => handleOpenPayment(product)}
+                        className={`inline-flex items-center px-2 py-1 text-xs rounded transition-colors ${
+                          processingProductId === product.uuid
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
+                        disabled={processingProductId === product.uuid}
+                      >
+                        {processingProductId === product.uuid ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                            準備中
+                          </>
+                        ) : (
+                          '決済'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // グリッド表示（既存のカード形式）
+              products.map((product) => (
+                <div key={product.id} className={`bg-white shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow ${
+                  viewMode === 'list' ? 'flex' : (showImages ? '' : 'flex')
+                }`}>
+                {/* 商品画像ギャラリー（画像表示ONかつグリッド表示の場合のみ） */}
+                {showImages && viewMode === 'grid' && (
+                  <ImageGallery images={product.images} productName={product.name} />
+                )}
+
+                {/* リスト表示時またはグリッド表示で画像非表示時の代替表示 */}
+                {(viewMode === 'list' || !showImages) && (
+                  <div className="flex-shrink-0 w-20 h-20 bg-gray-200 flex items-center justify-center m-4 rounded-lg">
+                    {product.images.length > 0 ? (
+                      <div className="text-center">
+                        <svg className="w-6 h-6 text-gray-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-xs text-gray-500">{product.images.length}枚</span>
+                      </div>
+                    ) : (
+                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </div>
+                )}
+
+                <div className={`p-4 sm:p-6 ${viewMode === 'list' || !showImages ? 'flex-grow' : ''}`}>
+                  <h3 className={`font-semibold text-gray-900 mb-2 ${
+                    viewMode === 'grid' && showImages ? 'text-base sm:text-lg line-clamp-2' : 'text-lg'
+                  }`}>{product.name}</h3>
+                    
+                  <div className={`space-y-2 text-xs sm:text-sm text-gray-600 ${
+                    viewMode === 'list' || !showImages ? 'mb-4' : ''
+                  }`}>
                     <div className="flex justify-between">
                       <span>{t("products.price")}:</span>
                       <span className="font-medium">{formatPrice(product.price)} XYM</span>
@@ -386,25 +674,35 @@ export default function ProductList() {
                       </div>
                     )}
 
-                    {/* 画像数とカスタムフィールド数の表示 */}
-                    <div className="pt-2 border-t flex justify-between">
-                      {product.images.length > 0 && (
-                        <span className="text-xs text-blue-600 flex items-center">
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          {product.images.length}枚
-                        </span>
-                      )}
-                      {product.customFields.length > 0 && (
-                        <span className="text-xs text-green-600 flex items-center">
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          {product.customFields.length}項目
-                        </span>
-                      )}
-                    </div>
+                    {/* 画像数とカスタムフィールド数の表示（グリッド表示で画像表示ONの場合のみ） */}
+                    {viewMode === 'grid' && showImages && (
+                      <div className="pt-2 border-t flex justify-between">
+                        {product.images.length > 0 && (
+                          <span className="text-xs text-blue-600 flex items-center">
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {product.images.length}枚
+                          </span>
+                        )}
+                        {product.customFields.length > 0 && (
+                          <span className="text-xs text-green-600 flex items-center">
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            {product.customFields.length}項目
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* リスト表示時または画像非表示時の追加情報 */}
+                    {(viewMode === 'list' || !showImages) && (
+                      <div className="pt-2 border-t flex justify-between text-xs">
+                        <span className="text-blue-600">画像: {product.images.length}枚</span>
+                        <span className="text-green-600">フィールド: {product.customFields.length}項目</span>
+                      </div>
+                    )}
                   </div>                  {product.description && (
                     <p className="mt-3 text-sm text-gray-600 line-clamp-3">
                       {product.description}
@@ -524,7 +822,9 @@ export default function ProductList() {
                     </button>
                   </div>
                 </div>
-              </div>            ))}
+              </div>
+              ))
+            )}
           </div>
         )}        </div>
       </div>

@@ -29,6 +29,11 @@ export default function FreeeOAuthPage() {
       
       if (response.ok && data.authUrl) {
         window.location.href = data.authUrl;
+      } else if (response.status === 400 && data.redirectTo) {
+        // freee設定が未完了の場合
+        if (confirm(`${data.message}\n設定ページに移動しますか？`)) {
+          window.location.href = data.redirectTo;
+        }
       } else {
         throw new Error(data.error || 'OAuth認証の開始に失敗しました');
       }

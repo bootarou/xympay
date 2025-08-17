@@ -68,6 +68,15 @@ model User {
   userPrivacyPolicy  String? @db.Text // ユーザー独自のプライバシーポリシー
   userCommerceLaw    String? @db.Text // ユーザー独自の特定商取引法に基づく表記
 
+  // freee連携設定
+  freeeClientId     String? // freee OAuth Client ID
+  freeeClientSecret String? // freee OAuth Client Secret
+  freeeRedirectUri  String? // freee OAuth Redirect URI
+  
+  // freee個人アクセストークン（簡易連携用）
+  freeePersonalAccessToken String? // freee Personal Access Token
+  freeeAuthType String? @default("oauth") // "oauth" or "personal_token"
+
   accounts  Account[]
   sessions  Session[]
   products  Product[]

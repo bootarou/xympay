@@ -91,3 +91,5 @@ Thumbs.db
 # Local development files
 # ローカル開発ファイル
 route_simple.ts
+
+.test-scripts/

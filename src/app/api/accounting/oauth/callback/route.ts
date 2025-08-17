@@ -25,21 +25,42 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 環境変数の確認
-    const clientId = process.env.FREEE_CLIENT_ID;
-    const clientSecret = process.env.FREEE_CLIENT_SECRET;
-    const redirectUri = process.env.FREEE_REDIRECT_URI;
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.redirect(
+        new URL('/auth/signin', request.url)
+      );
+    }
 
-    if (!clientId || !clientSecret || !redirectUri) {
+    // ユーザーのfreee設定を取得
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: {
+        id: true,
+        freeeClientId: true,
+        freeeClientSecret: true,
+        freeeRedirectUri: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.redirect(
+        new URL('/accounting?error=user_not_found', request.url)
+      );
+    }
+
+    const { freeeClientId, freeeClientSecret, freeeRedirectUri } = user;
+
+    if (!freeeClientId || !freeeClientSecret || !freeeRedirectUri) {
       return NextResponse.redirect(
         new URL('/accounting?error=oauth_not_configured', request.url)
       );
     }
 
     const oauthClient = new FreeeOAuthClient({
-      clientId,
-      clientSecret,
-      redirectUri,
+      clientId: freeeClientId,
+      clientSecret: freeeClientSecret,
+      redirectUri: freeeRedirectUri,
       scopes: ['read', 'write'],
     });
 
